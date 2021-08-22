@@ -1,0 +1,116 @@
+<head>
+	<script src='https://cdn.plot.ly/plotly-2.3.1.min.js'></script>
+</head>
+
+<body>
+	<div id='myDiv'></div>
+</body>
+
+<script>
+let map_data = null;
+let map_pool = {};
+
+function process()
+{
+	map_data.forEach(function(e) {
+		// Skip map, if played less then 15 minutes actively or playernumber < 4 (YES, THOSE ARE MAGIC NUMBERS)
+		if(e.minutes_played_active < 15 || e.players_start < 4)
+		{
+			return;
+		}	
+			
+		if(map_pool[e.map] != null)
+		{
+			map_pool[e.map]["counter"]++;
+		}
+		else
+		{
+			map_pool[e.map] = {};
+			map_pool[e.map]["data"] = [];
+			map_pool[e.map]["counter"] = 1;
+			map_pool[e.map]["players_loaded"] = [];
+			map_pool[e.map]["players_start"] = [];
+			map_pool[e.map]["players_end"] = [];
+			map_pool[e.map]["players_before"] = [];
+		}	
+		map_pool[e.map]["data"].push(e);
+		map_pool[e.map]["players_loaded"].push(e.players_loaded);
+		map_pool[e.map]["players_start"].push(e.players_start);
+		map_pool[e.map]["players_end"].push(e.players_end);
+		map_pool[e.map]["players_before"].push(e.players_before);
+		
+	})
+	for (const [key, value] of Object.entries(map_pool)) {
+		// Calculate some additional data to plot
+		// Player_end - players_start = Amount of players gained/lost per map
+
+		let map_name = value.data[0].map;
+		let player_diff = [];
+		for (let i=0; i<map_pool[map_name].players_start.length; i++) {
+			player_diff[i] = map_pool[map_name].players_start[i]-map_pool[map_name].players_end[i];
+		}
+		map_pool[map_name]["players diff start - end"] = player_diff;
+	}
+	
+	// Plot player gain/loss per map before plotting all map data
+	/*let maps_plot_data = [];
+
+	for (const [key, value] of Object.entries(map_pool)) {
+		document.getElementById("myDiv").innerHTML += "<div id='all_map_data'></div>";
+		let map_name = value.data[0].map;
+		
+		maps_plot_data.push(create_plot_data(map_name, map_pool[map_name]["players diff start - end"], 'rgb(255 239 4)'));
+	}
+	var layout = {
+	  title: "Player gain/loss per map"
+	};
+
+	var config = {responsive: true}
+
+	Plotly.newPlot("all_map_data", maps_plot_data, layout, config); */
+		
+	let i = 1;
+	for (const [key, value] of Object.entries(map_pool)) {
+
+		console.log(`${key}: ${value}`);
+		let div_name = "div_id" + i++;
+		document.getElementById("myDiv").innerHTML += "<div><div id='" + div_name +"'></div></div>";
+		let map_name = value.data[0].map;
+		let plot_data = [];
+		
+		plot_data.push(create_plot_data("players_before", map_pool[map_name].players_before, 'rgb(69 241 106)'));
+		plot_data.push(create_plot_data("players_loaded", map_pool[map_name].players_loaded, 'rgb(241 69 137)'));
+		plot_data.push(create_plot_data("players_start", map_pool[map_name].players_start, 'rgb(133 69 241)'));
+		plot_data.push(create_plot_data("players_end", map_pool[map_name].players_end, 'rgb(69 202 241)'));
+		plot_data.push(create_plot_data("players diff start - end", map_pool[map_name]["players diff start - end"], 'rgb(255 239 4)'));
+
+		var layout = {
+		  title: map_name + ":(" + map_pool[map_name].counter + ")"
+		};
+
+		var config = {responsive: true}
+
+		Plotly.newPlot(div_name, plot_data, layout, config);
+		
+	}
+	
+	
+}
+function create_plot_data(name, data, disp_color)
+{
+	return {
+	  y: data,
+	  type: 'box',
+	  name: name,
+	  marker: {
+		color: disp_color
+	  },
+	  boxpoints: 'Outliers'
+	};
+
+}
+fetch("https://squareplayn.com/api/maps/101/sessions").then(d => d.json()).then(d => map_data = d).then(d=> process());
+
+let map_count
+
+</script>
